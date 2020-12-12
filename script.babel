@@ -1,0 +1,113 @@
+const w = 1000;
+const h = 500;
+const padding = 80;
+const MONTHS = {"1" : "January", "2": "February", "3": "March", "4" : "April", "5": "May", "6":"June", "7":"July", "8":"August", "9": "September", "10": "October", "11": "November", "12": "December"}
+d3.select("#all").append("svg")
+  .attr("id", "chart")
+  .attr("width", w)
+  .attr("height", h);
+d3.select("#all").append("div")
+  .attr("id", "tooltip")
+  .style("opacity", "0")
+  .html("<p>Placeholder</p>")  
+d3.select("#chart").append("text")
+  .attr("id", "title")
+  .attr("x", w / 2)
+  .attr("y", padding / 2)
+  .attr("text-anchor", "middle")
+  .text("Global Temperature, 1753-2015")
+d3.select("#chart").append("text")
+  .attr("id", "description")
+  .attr("x", w / 2)
+  .attr("y", 4 * padding / 5)
+  .attr("text-anchor", "middle")
+  .text("Monthly Variance from Base Temperature of 8.66\u00B0 Celsius");
+d3.select("#chart").append("g")
+  .attr("id", "legend")
+  .attr("transform", `translate(${w - padding - 200}, ${h - (5  * padding / 6)})`);
+
+
+const req = new XMLHttpRequest();
+req.open("GET", "https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/global-temperature.json", true);
+req.send();
+req.onload = () => {
+  const json = JSON.parse(req.responseText);
+  const rawData = json.monthlyVariance;
+let variances = [];
+  for (let i = 0; i < rawData.length; i++) {
+    variances.push(Number(rawData[i].variance) + 8.66)
+  }
+  
+let colorScale = d3.scaleLog()  .domain([d3.min(variances), d3.max(variances + 8.66)])
+.range([200, 0]);
+let xScale = d3.scaleLinear()
+  .domain([1753, 2015])
+  .range([padding, w - padding]);
+let yScale = d3.scaleLinear()
+  .domain([0, 12])
+  .range([h - padding, padding]);
+  
+let xAxis = d3.axisBottom(xScale)
+.ticks(20, "d");
+d3.select("#chart").append("g")
+  .attr("transform", `translate(0, ${h - padding})`)
+  .attr("id", "x-axis")
+  .call(xAxis);
+let yAxis = d3.axisLeft(yScale)
+.tickValues([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5])
+.tickFormat((d, i) => MONTHS[String(d + 0.5)]);
+d3.select("#chart").append("g")
+  .attr("transform", `translate(${padding}, 0)`)
+  .attr("id", "y-axis")
+  .call(yAxis);
+ 
+ const computeColor = (variance) => { 
+   let hue = colorScale(Number(variance + 8.66))
+   return `hsl(${hue}, 100%, 30%)`
+  }
+ 
+ let fff = d3.format("0.3f");
+  d3.select("#chart").selectAll("rect")
+  .data(rawData)
+  .enter()
+  .append("rect")
+  .attr("x", d => xScale(d.year))
+  .attr("y", d => yScale(d.month))
+  .attr("width", (w - 2 * padding) / (2016 - 1753))
+  .attr("height", (h - 2 * padding) / 12)
+  .attr("fill", d => computeColor(d.variance))
+  .attr("class", "cell")
+  .attr("data-month", d => d.month - 1)
+  .attr("data-year", d => d.year)
+  .attr("data-temp", d => 8.66 + Number(d.variance))
+  .on("mouseover", (d, i) => {
+    d3.select("#tooltip")
+    .style("opacity", 1)
+    .style("left", `${xScale(i.year) + 30}px`)
+    .style("top", `${yScale(i.month)}px`)
+    .attr("data-year", i.year)
+    .html(`<div>${fff(i.variance + 8.66)}&#176; C<br>${MONTHS[i.month]}<br>${i.year}</div>`)
+  })
+  .on("mouseout", () => {
+    d3.select("#tooltip").style("opacity",
+                               0)
+  });
+ let min = d3.min(variances) - 8.66;
+ let max = d3.max(variances) - 8.66;
+ let temps = [min, min + (max - min) / 3, min + (max - min) * 2 / 3, max]
+ for (let i = 0; i < temps.length; i++) {
+ d3.select("#legend").append("rect")
+  .attr("x", 40 * (i + 1))
+  .attr("y", padding / 5)
+  .attr("width", 5 * (w - 2 * padding) / (2016 - 1753))
+  .attr("height", (h - 2 * padding) / 12)
+   .attr("fill", computeColor(temps[i]))
+ }
+  for (let i = 0; i < temps.length; i++) {
+    let f = d3.format("0.1f"); d3.select("#legend").append("text")
+    .attr("x", 40 * (i + 1))
+    .attr("y", padding - 20)
+    .attr("class", "legend-text")
+    .text(String(f(temps[i] + 8.66)) + "\u00B0")
+  }
+};
